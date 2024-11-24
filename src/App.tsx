@@ -61,7 +61,7 @@ function App() {
       </header>
       
       <main className="chat-container">
-        <div className="messages-container">
+        <div className="messages-container" data-testid="messages-container">
           {messages.map((message, index) => (
             <ChatMessage
               key={index}

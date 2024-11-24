@@ -35,14 +35,21 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
       setIsListening(false);
     };
 
-    recognition.start();
+    try {
+      recognition.start();
+    } catch (error) {
+      console.error('Speech recognition error:', error);
+      setIsListening(false);
+    }
   };
 
   return (
-    <button
+    <button 
       className={`voice-button ${isListening ? 'listening' : ''}`}
       onClick={startListening}
       disabled={isListening}
+      aria-label="Start voice input"
+      title="Click to start voice input"
     >
       <FaMicrophone />
     </button>
