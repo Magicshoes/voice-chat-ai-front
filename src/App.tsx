@@ -62,7 +62,7 @@ function App() {
       
       <main className="chat-container">
         <div className="messages-container" data-testid="messages-container">
-          {messages.map((message, index) => (
+          {messages.slice().reverse().map((message, index) => (
             <ChatMessage
               key={index}
               message={message.text}
