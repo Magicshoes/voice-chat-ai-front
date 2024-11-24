@@ -10,7 +10,13 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
 
   const startListening = () => {
     setIsListening(true);
-    const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SpeechRecognition) {
+      console.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, Safari (14.1+), or Opera.');
+      setIsListening(false);
+      return;
+    }
+    const recognition = new SpeechRecognition();
     recognition.continuous = false;
     recognition.interimResults = false;
 

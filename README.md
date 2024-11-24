@@ -1,3 +1,23 @@
+# Voice Chat AI Frontend
+
+This project provides a voice-enabled chat interface using the Web Speech API.
+
+## Browser Compatibility
+
+The voice recognition feature is supported in the following browsers:
+
+✅ **Supported Browsers:**
+- Chrome (desktop & mobile): version 33+
+- Edge: version 79+ (Chromium-based)
+- Safari (desktop & iOS): version 14.1+
+- Opera: version 27+
+- Chrome for Android
+- Samsung Internet
+
+❌ **Not Supported:**
+- Firefox (desktop & mobile)
+- Internet Explorer
+
 # Getting Started with Create React App
 
 This project was bootstrapped with [Create React App](https://github.com/facebook/create-react-app).
