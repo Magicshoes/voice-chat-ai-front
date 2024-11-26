@@ -287,10 +287,10 @@ describe('Voice Chat Integration', () => {
         const messagesContainer = screen.getByTestId('messages-container');
         const messages = within(messagesContainer).getAllByText(/(First message|Response to first message)/);
         expect(messages).toHaveLength(2);
-        expect(messages[0]).toHaveTextContent('First message');
-        expect(messages[1]).toHaveTextContent(firstResponse);
-        expect(messages[0].closest('.message-container')).toHaveClass('user');
-        expect(messages[1].closest('.message-container')).toHaveClass('ai');
+        expect(messages[0]).toHaveTextContent('Response to first message');
+        expect(messages[1]).toHaveTextContent('First message');
+        expect(messages[0].closest('.message-container')).toHaveClass('ai');
+        expect(messages[1].closest('.message-container')).toHaveClass('user');
       }, { timeout: 3000, interval: 100 });
     });
 
@@ -320,10 +320,14 @@ describe('Voice Chat Integration', () => {
         const messagesContainer = screen.getByTestId('messages-container');
         const messages = within(messagesContainer).getAllByText(/(First message|Response to first message|Second message|Response to second message)/);
         expect(messages).toHaveLength(4);
-        expect(messages[0]).toHaveTextContent('First message');
-        expect(messages[1]).toHaveTextContent(firstResponse);
-        expect(messages[2]).toHaveTextContent('Second message');
-        expect(messages[3]).toHaveTextContent(secondResponse);
+        expect(messages[0]).toHaveTextContent('Response to second message');
+        expect(messages[1]).toHaveTextContent('Second message');
+        expect(messages[2]).toHaveTextContent('Response to first message');
+        expect(messages[3]).toHaveTextContent('First message');
+        expect(messages[0].closest('.message-container')).toHaveClass('ai');
+        expect(messages[1].closest('.message-container')).toHaveClass('user');
+        expect(messages[2].closest('.message-container')).toHaveClass('ai');
+        expect(messages[3].closest('.message-container')).toHaveClass('user');
       }, { timeout: 3000, interval: 100 });
     });
 
