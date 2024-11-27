@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { act } from 'react';
 import { render, screen, fireEvent } from '@testing-library/react';
-import { act } from 'react';
 import '@testing-library/jest-dom';
 import VoiceButton from '../VoiceButton';
 
@@ -41,15 +40,17 @@ describe('VoiceButton Component', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders the microphone button', async () => {
+  it('renders with proper accessibility attributes', async () => {
     await act(async () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
 
-    const button = screen.getByRole('button');
+    const button = screen.getByRole('button', { name: 'Start voice input' });
     expect(button).toBeInTheDocument();
     expect(button).toHaveClass('voice-button');
-    expect(button.querySelector('svg')).toBeInTheDocument();
+    expect(button).toHaveAttribute('aria-label', 'Start voice input');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
+    expect(button).not.toBeDisabled();
   });
 
   it('starts listening when clicked', async () => {
@@ -57,15 +58,15 @@ describe('VoiceButton Component', () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
 
-    const button = screen.getByRole('button');
-
+    const button = screen.getByRole('button', { name: 'Start voice input' });
+    
     await act(async () => {
       fireEvent.click(button);
-      await Promise.resolve();
     });
 
     expect(mockRecognitionInstance.start).toHaveBeenCalled();
-    expect(button).toHaveClass('voice-button listening');
+    expect(button).toHaveClass('voice-button', 'listening');
+    expect(button).toHaveAttribute('aria-pressed', 'true');
     expect(button).toBeDisabled();
   });
 
@@ -74,83 +75,72 @@ describe('VoiceButton Component', () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
 
-    const button = screen.getByRole('button');
-
+    const button = screen.getByRole('button', { name: 'Start voice input' });
+    
     await act(async () => {
       fireEvent.click(button);
-      await Promise.resolve();
     });
 
     const testText = 'Test speech input';
     
     await act(async () => {
-      if (mockRecognitionInstance.onresult) {
-        mockRecognitionInstance.onresult({
-          results: [[{ transcript: testText }]]
-        });
-      }
-      if (mockRecognitionInstance.onend) {
-        mockRecognitionInstance.onend();
-      }
-      await Promise.resolve();
+      mockRecognitionInstance.onresult?.({
+        results: [[{ transcript: testText }]]
+      });
     });
 
     expect(mockOnSpeechResult).toHaveBeenCalledWith(testText);
     expect(button).not.toHaveClass('listening');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(button).not.toBeDisabled();
   });
 
-  it('handles speech recognition errors', async () => {
+  it('handles speech recognition error', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
+
     await act(async () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
-    const button = screen.getByRole('button');
 
+    const button = screen.getByRole('button', { name: 'Start voice input' });
+    
     await act(async () => {
       fireEvent.click(button);
-      await Promise.resolve();
     });
-
-    const mockError = { error: 'no-speech' };
 
     await act(async () => {
-      if (mockRecognitionInstance.onerror) {
-        mockRecognitionInstance.onerror(mockError);
-      }
-      await Promise.resolve();
+      mockRecognitionInstance.onerror?.({ error: 'test error' });
     });
 
-    expect(consoleSpy).toHaveBeenCalledWith('Speech recognition error:', 'no-speech');
+    expect(consoleSpy).toHaveBeenCalledWith('Speech recognition error:', 'test error');
     expect(button).not.toHaveClass('listening');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(button).not.toBeDisabled();
 
     consoleSpy.mockRestore();
   });
 
-  it('handles recognition end event', async () => {
+  it('handles speech recognition end', async () => {
     await act(async () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
-    const button = screen.getByRole('button');
 
+    const button = screen.getByRole('button', { name: 'Start voice input' });
+    
     await act(async () => {
       fireEvent.click(button);
-      await Promise.resolve();
     });
 
     await act(async () => {
-      if (mockRecognitionInstance.onend) {
-        mockRecognitionInstance.onend();
-      }
-      await Promise.resolve();
+      mockRecognitionInstance.onend?.();
     });
 
     expect(button).not.toHaveClass('listening');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(button).not.toBeDisabled();
   });
 
-  it('handles unsupported browsers', async () => {
+  it('handles browser not supporting speech recognition', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
     
     // Remove SpeechRecognition support
@@ -166,17 +156,18 @@ describe('VoiceButton Component', () => {
     await act(async () => {
       render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
     });
-    const button = screen.getByRole('button');
 
+    const button = screen.getByRole('button', { name: 'Start voice input' });
+    
     await act(async () => {
       fireEvent.click(button);
-      await Promise.resolve();
     });
 
     expect(consoleSpy).toHaveBeenCalledWith(
       'Speech recognition is not supported in this browser. Please use Chrome, Edge, Safari (14.1+), or Opera.'
     );
     expect(button).not.toHaveClass('listening');
+    expect(button).toHaveAttribute('aria-pressed', 'false');
     expect(button).not.toBeDisabled();
 
     consoleSpy.mockRestore();

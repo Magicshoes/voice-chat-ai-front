@@ -10,6 +10,7 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
 
   const startListening = () => {
     setIsListening(true);
+    
     const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
     if (!SpeechRecognition) {
       console.error('Speech recognition is not supported in this browser. Please use Chrome, Edge, Safari (14.1+), or Opera.');
@@ -44,15 +45,20 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
   };
 
   return (
-    <button 
-      className={`voice-button ${isListening ? 'listening' : ''}`}
-      onClick={startListening}
-      disabled={isListening}
-      aria-label="Start voice input"
-      title="Click to start voice input"
-    >
-      <FaMicrophone />
-    </button>
+    <div className="voice-input-container">
+      <button
+        className={`voice-button ${isListening ? 'listening' : ''}`}
+        onClick={startListening}
+        disabled={isListening}
+        aria-label="Start voice input"
+        aria-pressed={isListening}
+        title="Start voice input"
+        type="button"
+      >
+        <FaMicrophone aria-hidden="true" />
+        <span className="sr-only">Start voice input</span>
+      </button>
+    </div>
   );
 };
 

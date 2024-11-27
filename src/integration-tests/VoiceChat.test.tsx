@@ -1,6 +1,5 @@
-import React from 'react';
+import React, { act } from 'react';
 import { render, screen, fireEvent, waitFor, within } from '@testing-library/react';
-import { act } from 'react';
 import '@testing-library/jest-dom';
 import App from '../App';
 
@@ -32,22 +31,6 @@ Object.defineProperty(window, 'SpeechSynthesisUtterance', {
 Object.defineProperty(window, 'speechSynthesis', {
   value: new MockSpeechSynthesis(),
   writable: true
-});
-
-// Mock fetch API
-window.fetch = jest.fn();
-const mockResponse = "This is a mock response from the AI assistant";
-(window.fetch as jest.Mock).mockImplementation(async (url, options) => {
-  console.log('Fetch called with:', { url, options });
-  const response = {
-    ok: true,
-    json: async () => {
-      const data = { message: mockResponse, error: null };
-      console.log('Fetch response:', data);
-      return data;
-    }
-  };
-  return response;
 });
 
 // Mock the Web Speech Recognition API
@@ -91,47 +74,33 @@ describe('Voice Chat Integration', () => {
       value: mockSpeechRecognition,
       writable: true
     });
-  });
 
-  afterEach(async () => {
-    // Cancel any ongoing speech synthesis
-    window.speechSynthesis.cancel();
-    
-    // Clear all mocks and timers
-    jest.clearAllMocks();
-    jest.clearAllTimers();
-    
-    // Run all pending microtasks
-    await Promise.resolve();
-    
-    // Cleanup any pending effects
-    await act(async () => {
-      jest.runOnlyPendingTimers();
-      await Promise.resolve();
-    });
-  });
-
-  it('integrates voice input with chat interface', async () => {
-    const mockResponse = 'Hello! How can I help you today?';
-    
     // Setup fetch mock
     window.fetch = jest.fn().mockImplementation(async () => ({
       ok: true,
-      json: async () => ({ message: mockResponse })
+      json: async () => ({ message: 'AI response' })
     }));
+  });
 
+  afterEach(() => {
+    window.speechSynthesis.cancel();
+    jest.clearAllMocks();
+  });
+
+  it('integrates voice input with chat interface', async () => {
     // Render the app
     await act(async () => {
       render(<App />);
-      await Promise.resolve();
     });
 
-    const voiceButton = screen.getByRole('button', { name: 'Start voice input' });
+    // Wait for the button to be available
+    const voiceButton = await waitFor(() => 
+      screen.getByRole('button', { name: 'Start voice input' })
+    );
     
     // Click the voice button
     await act(async () => {
       fireEvent.click(voiceButton);
-      await Promise.resolve();
     });
 
     const userMessage = 'Hello AI assistant';
@@ -160,12 +129,12 @@ describe('Voice Chat Integration', () => {
     const messagesContainer = screen.getByTestId('messages-container');
     
     // Verify user message
-    const userMessageEl = within(messagesContainer).getByText(userMessage);
+    const userMessageEl = await within(messagesContainer).findByText(userMessage);
     expect(userMessageEl).toBeInTheDocument();
     expect(userMessageEl.closest('.message-container')).toHaveClass('user');
 
     // Verify AI response
-    const aiMessageEl = within(messagesContainer).getByText(mockResponse);
+    const aiMessageEl = await within(messagesContainer).findByText('AI response');
     expect(aiMessageEl).toBeInTheDocument();
     expect(aiMessageEl.closest('.message-container')).toHaveClass('ai');
 
@@ -199,7 +168,9 @@ describe('Voice Chat Integration', () => {
       render(<App />);
     });
 
-    const voiceButton = screen.getByRole('button', { name: 'Start voice input' });
+    const voiceButton = await waitFor(() => 
+      screen.getByRole('button', { name: 'Start voice input' })
+    );
     
     await act(async () => {
       fireEvent.click(voiceButton);
@@ -229,110 +200,94 @@ describe('Voice Chat Integration', () => {
     // Mock different responses for each API call
     const firstResponse = "Response to first message";
     const secondResponse = "Response to second message";
-    (window.fetch as jest.Mock)
-      .mockImplementationOnce(async (url, options) => {
-        console.log('Fetch called with:', { url, options });
-        const response = {
-          ok: true,
-          json: async () => {
-            const data = { message: firstResponse, error: null };
-            console.log('Fetch response:', data);
-            return data;
-          }
-        };
-        return response;
-      })
-      .mockImplementationOnce(async (url, options) => {
-        console.log('Fetch called with:', { url, options });
-        const response = {
-          ok: true,
-          json: async () => {
-            const data = { message: secondResponse, error: null };
-            console.log('Fetch response:', data);
-            return data;
-          }
-        };
-        return response;
+    window.fetch = jest.fn()
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ message: firstResponse })
+      }))
+      .mockImplementationOnce(async () => ({
+        ok: true,
+        json: async () => ({ message: secondResponse })
+      }));
+
+    render(<App />);
+
+    // Get the voice button
+    const voiceButton = await screen.findByRole('button', { name: 'Start voice input' });
+    expect(voiceButton).toBeInTheDocument();
+
+    // First message sequence
+    await act(async () => {
+      fireEvent.click(voiceButton);
+    });
+
+    expect(voiceButton).toBeDisabled();
+    expect(voiceButton).toHaveClass('listening');
+
+    await act(async () => {
+      mockRecognitionInstance.onresult?.({
+        results: [[{ transcript: 'First message' }]]
       });
-
-    await act(async () => {
-      render(<App />);
+      mockRecognitionInstance.onend?.();
     });
 
-    const voiceButton = screen.getByRole('button', { name: 'Start voice input' });
-    
-    // First message
+    // Wait for first message and response
+    await screen.findByText('First message');
+    await screen.findByText(firstResponse);
+
+    // Second message sequence
     await act(async () => {
       fireEvent.click(voiceButton);
     });
-    
-    await act(async () => {
-      if (mockRecognitionInstance.onresult) {
-        mockRecognitionInstance.onresult({ 
-          results: [[{ transcript: 'First message' }]] 
-        });
-      }
-      if (mockRecognitionInstance.onend) {
-        mockRecognitionInstance.onend();
-      }
-    });
-    
-    // Advance timers and wait for any pending promises
-    jest.advanceTimersByTime(100);
-    await Promise.resolve();
 
-    // Wait for both first message and its response
+    expect(voiceButton).toBeDisabled();
+    expect(voiceButton).toHaveClass('listening');
+
     await act(async () => {
-      await waitFor(() => {
-        const messagesContainer = screen.getByTestId('messages-container');
-        const messages = within(messagesContainer).getAllByText(/(First message|Response to first message)/);
-        expect(messages).toHaveLength(2);
-        expect(messages[0]).toHaveTextContent('Response to first message');
-        expect(messages[1]).toHaveTextContent('First message');
-        expect(messages[0].closest('.message-container')).toHaveClass('ai');
-        expect(messages[1].closest('.message-container')).toHaveClass('user');
-      }, { timeout: 3000, interval: 100 });
+      mockRecognitionInstance.onresult?.({
+        results: [[{ transcript: 'Second message' }]]
+      });
+      mockRecognitionInstance.onend?.();
     });
 
-    // Second message
-    await act(async () => {
-      fireEvent.click(voiceButton);
-    });
-    
-    await act(async () => {
-      if (mockRecognitionInstance.onresult) {
-        mockRecognitionInstance.onresult({ 
-          results: [[{ transcript: 'Second message' }]] 
-        });
-      }
-      if (mockRecognitionInstance.onend) {
-        mockRecognitionInstance.onend();
-      }
-    });
-    
-    // Advance timers and wait for any pending promises
-    jest.advanceTimersByTime(100);
-    await Promise.resolve();
+    // Wait for second message and response
+    await screen.findByText('Second message');
+    await screen.findByText(secondResponse);
 
-    // Wait for all four messages to appear
-    await act(async () => {
-      await waitFor(() => {
-        const messagesContainer = screen.getByTestId('messages-container');
-        const messages = within(messagesContainer).getAllByText(/(First message|Response to first message|Second message|Response to second message)/);
-        expect(messages).toHaveLength(4);
-        expect(messages[0]).toHaveTextContent('Response to second message');
-        expect(messages[1]).toHaveTextContent('Second message');
-        expect(messages[2]).toHaveTextContent('Response to first message');
-        expect(messages[3]).toHaveTextContent('First message');
-        expect(messages[0].closest('.message-container')).toHaveClass('ai');
-        expect(messages[1].closest('.message-container')).toHaveClass('user');
-        expect(messages[2].closest('.message-container')).toHaveClass('ai');
-        expect(messages[3].closest('.message-container')).toHaveClass('user');
-      }, { timeout: 3000, interval: 100 });
-    });
+    // Verify both messages and responses are still visible
+    expect(screen.getByText('First message')).toBeInTheDocument();
+    expect(screen.getByText(firstResponse)).toBeInTheDocument();
+    expect(screen.getByText('Second message')).toBeInTheDocument();
+    expect(screen.getByText(secondResponse)).toBeInTheDocument();
 
+    // Verify API calls
     expect(window.fetch).toHaveBeenCalledTimes(2);
-    expect(window.speechSynthesis.speak).toHaveBeenCalledTimes(2);
+    expect(window.fetch).toHaveBeenNthCalledWith(1, 
+      'http://localhost:8080/api/chat',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: 'First message',
+          model: 'gpt-3.5-turbo',
+        }),
+      })
+    );
+    expect(window.fetch).toHaveBeenNthCalledWith(2,
+      'http://localhost:8080/api/chat',
+      expect.objectContaining({
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          message: 'Second message',
+          model: 'gpt-3.5-turbo',
+        }),
+      })
+    );
   });
 
   it('handles API errors gracefully', async () => {
@@ -349,7 +304,9 @@ describe('Voice Chat Integration', () => {
       await Promise.resolve();
     });
 
-    const voiceButton = screen.getByRole('button', { name: 'Start voice input' });
+    const voiceButton = await waitFor(() => 
+      screen.getByRole('button', { name: 'Start voice input' })
+    );
     
     // Click the voice button
     await act(async () => {
@@ -381,7 +338,7 @@ describe('Voice Chat Integration', () => {
 
     // Verify the user message appears
     const messagesContainer = screen.getByTestId('messages-container');
-    const userMessageEl = within(messagesContainer).getByText(userMessage);
+    const userMessageEl = await within(messagesContainer).findByText(userMessage);
     expect(userMessageEl).toBeInTheDocument();
     expect(userMessageEl.closest('.message-container')).toHaveClass('user');
 

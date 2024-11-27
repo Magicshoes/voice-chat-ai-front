@@ -14,7 +14,8 @@ function App() {
 
   const handleSpeechResult = async (text: string) => {
     // Add user message
-    setMessages(prev => [...prev, { text, isUser: true }]);
+    const newMessage = { text, isUser: true };
+    setMessages(prev => [...prev, newMessage]);
 
     try {
       const response = await fetch('http://localhost:8080/api/chat', {
@@ -28,16 +29,23 @@ function App() {
         }),
       });
 
+      if (!response.ok) {
+        throw new Error('API request failed');
+      }
+
       const data = await response.json();
       
       // Add AI response
-      setMessages(prev => [...prev, { text: data.message, isUser: false }]);
+      const aiMessage = { text: data.message, isUser: false };
+      setMessages(prev => [...prev, aiMessage]);
       
       // Play the response using TTS
       const speech = new SpeechSynthesisUtterance(data.message);
       window.speechSynthesis.speak(speech);
     } catch (error) {
       console.error('Error:', error);
+      // Add error message to chat
+      setMessages(prev => [...prev, { text: 'Sorry, there was an error processing your request.', isUser: false }]);
     }
   };
 
