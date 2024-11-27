@@ -39,9 +39,66 @@ function App() {
       const aiMessage = { text: data.message, isUser: false };
       setMessages(prev => [...prev, aiMessage]);
       
-      // Play the response using TTS
+      // Enhanced TTS setup
       const speech = new SpeechSynthesisUtterance(data.message);
-      window.speechSynthesis.speak(speech);
+      
+      // Get available voices
+      const voices = window.speechSynthesis.getVoices();
+      
+      // Select a high-quality English voice
+      const preferredVoice = voices.find(voice => 
+        voice.lang.startsWith('en') && 
+        (voice.name.includes('Enhanced') || 
+         voice.name.includes('Premium') || 
+         voice.name.includes('Neural') ||
+         voice.name.includes('Daniel') ||  // MacOS enhanced voice
+         voice.name.includes('Samantha'))  // MacOS enhanced voice
+      ) || voices.find(voice => voice.lang.startsWith('en')); // Fallback to any English voice
+      
+      if (preferredVoice) {
+        speech.voice = preferredVoice;
+      }
+      
+      // Optimize speech parameters
+      speech.rate = 1.0;      // Normal speed
+      speech.pitch = 1.0;     // Normal pitch
+      speech.volume = 1.0;    // Full volume
+      
+      // Add event handlers for better control
+      speech.onstart = () => {
+        console.log('Speech started');
+      };
+      
+      speech.onerror = (event) => {
+        console.error('Speech error:', event);
+      };
+      
+      speech.onend = () => {
+        console.log('Speech ended');
+      };
+      
+      // Ensure voices are loaded
+      if (window.speechSynthesis.getVoices().length === 0) {
+        window.speechSynthesis.onvoiceschanged = () => {
+          const updatedVoices = window.speechSynthesis.getVoices();
+          const updatedPreferredVoice = updatedVoices.find(voice => 
+            voice.lang.startsWith('en') && 
+            (voice.name.includes('Enhanced') || 
+             voice.name.includes('Premium') || 
+             voice.name.includes('Neural') ||
+             voice.name.includes('Daniel') ||
+             voice.name.includes('Samantha'))
+          ) || updatedVoices.find(voice => voice.lang.startsWith('en'));
+          
+          if (updatedPreferredVoice) {
+            speech.voice = updatedPreferredVoice;
+          }
+          window.speechSynthesis.speak(speech);
+        };
+      } else {
+        window.speechSynthesis.speak(speech);
+      }
+      
     } catch (error) {
       console.error('Error:', error);
       // Add error message to chat
