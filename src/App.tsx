@@ -11,6 +11,27 @@ interface Message {
 function App() {
   const [messages, setMessages] = useState<Message[]>([]);
   const [selectedModel, setSelectedModel] = useState('gpt-3.5-turbo');
+  const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
+
+  useEffect(() => {
+    // Check if speech synthesis is available
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      // Load voices when component mounts
+      const loadVoices = () => {
+        const availableVoices = window.speechSynthesis.getVoices();
+        setVoices(availableVoices);
+      };
+
+      loadVoices();
+      window.speechSynthesis.onvoiceschanged = loadVoices;
+
+      return () => {
+        if (window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = null;
+        }
+      };
+    }
+  }, []);
 
   const handleSpeechResult = async (text: string) => {
     // Add user message
@@ -41,9 +62,6 @@ function App() {
       
       // Enhanced TTS setup
       const speech = new SpeechSynthesisUtterance(data.message);
-      
-      // Get available voices
-      const voices = window.speechSynthesis.getVoices();
       
       // Select a high-quality English voice
       const preferredVoice = voices.find(voice => 
@@ -76,26 +94,9 @@ function App() {
       speech.onend = () => {
         console.log('Speech ended');
       };
-      
-      // Ensure voices are loaded
-      if (window.speechSynthesis.getVoices().length === 0) {
-        window.speechSynthesis.onvoiceschanged = () => {
-          const updatedVoices = window.speechSynthesis.getVoices();
-          const updatedPreferredVoice = updatedVoices.find(voice => 
-            voice.lang.startsWith('en') && 
-            (voice.name.includes('Enhanced') || 
-             voice.name.includes('Premium') || 
-             voice.name.includes('Neural') ||
-             voice.name.includes('Daniel') ||
-             voice.name.includes('Samantha'))
-          ) || updatedVoices.find(voice => voice.lang.startsWith('en'));
-          
-          if (updatedPreferredVoice) {
-            speech.voice = updatedPreferredVoice;
-          }
-          window.speechSynthesis.speak(speech);
-        };
-      } else {
+
+      // Speak the response
+      if (typeof window !== 'undefined' && window.speechSynthesis) {
         window.speechSynthesis.speak(speech);
       }
       
@@ -104,11 +105,6 @@ function App() {
       // Add error message to chat
       setMessages(prev => [...prev, { text: 'Sorry, there was an error processing your request.', isUser: false }]);
     }
-  };
-
-  const handlePlayMessage = (message: string) => {
-    const speech = new SpeechSynthesisUtterance(message);
-    window.speechSynthesis.speak(speech);
   };
 
   return (
@@ -132,7 +128,6 @@ function App() {
               key={index}
               message={message.text}
               isUser={message.isUser}
-              onPlay={!message.isUser ? () => handlePlayMessage(message.text) : undefined}
             />
           ))}
         </div>
