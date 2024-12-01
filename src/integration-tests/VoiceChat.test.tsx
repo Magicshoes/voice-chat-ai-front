@@ -212,7 +212,7 @@ describe('Voice Chat Integration', () => {
 
     // Verify API call
     expect(window.fetch).toHaveBeenCalledWith(
-      'http://localhost:8080/api/chat',
+      'http://localhost:11434/api/chat',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -382,7 +382,7 @@ describe('Voice Chat Integration', () => {
     // Verify API calls
     expect(window.fetch).toHaveBeenCalledTimes(2);
     expect(window.fetch).toHaveBeenNthCalledWith(1, 
-      'http://localhost:8080/api/chat',
+      'http://localhost:11434/api/chat',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -395,7 +395,7 @@ describe('Voice Chat Integration', () => {
       })
     );
     expect(window.fetch).toHaveBeenNthCalledWith(2,
-      'http://localhost:8080/api/chat',
+      'http://localhost:11434/api/chat',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -585,7 +585,7 @@ describe('Voice Chat Integration', () => {
     // Verify API calls
     expect(window.fetch).toHaveBeenCalledTimes(2);
     expect(window.fetch).toHaveBeenNthCalledWith(1,
-      'http://localhost:8080/api/chat',
+      'http://localhost:11434/api/chat',
       expect.objectContaining({
         method: 'POST',
         headers: {
@@ -598,7 +598,7 @@ describe('Voice Chat Integration', () => {
       })
     );
     expect(window.fetch).toHaveBeenNthCalledWith(2,
-      'http://localhost:8080/api/chat',
+      'http://localhost:11434/api/chat',
       expect.objectContaining({
         method: 'POST',
         headers: {
