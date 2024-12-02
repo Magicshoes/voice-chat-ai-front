@@ -98,22 +98,26 @@ function App() {
 
       const data = await response.json();
 
-      // Add AI response
+      // Add AI response and trigger speech synthesis
       const aiMessage = { text: data.message, isUser: false };
-      setMessages(prev => [...prev, aiMessage]);
+      setMessages(prev => {
+        const newMessages = [...prev, aiMessage];
+        // Speak the AI response after state update
+        speakText(aiMessage.text, voices);
+        return newMessages;
+      });
 
     } catch (error) {
       console.error('Error:', error);
       // Add error message to chat
-      setMessages(prev => [...prev, { text: 'Sorry, there was an error processing your request.', isUser: false }]);
+      setMessages(prev => {
+        const newMessages = [...prev, { text: 'Sorry, there was an error processing your request.', isUser: false }];
+        // Speak error message after state update
+        speakText('Sorry, there was an error processing your request.', voices);
+        return newMessages;
+      });
     }
     
-    const latestMessage = messages[messages.length - 1];
-    if (latestMessage && !latestMessage.isUser) {
-      // Speak the AI response
-      speakText(latestMessage.text, voices);
-    
-    };
   }
 
   return (
