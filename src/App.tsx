@@ -17,102 +17,76 @@ const speakText = async (speakText: string, voices: SpeechSynthesisVoice[]) => {
   // Cancel any ongoing speech
   window.speechSynthesis.cancel();
 
-  // Get fresh voices and log their properties
-  const freshVoices = window.speechSynthesis.getVoices();
-  console.log('Voice details:');
-  freshVoices.forEach((voice, index) => {
-    console.log(`Voice ${index}:`, {
-      name: voice.name,
-      lang: voice.lang,
-      default: voice.default,
-      localService: voice.localService,
-      voiceURI: voice.voiceURI
-    });
-  });
+  // Wait for voices to load if they haven't already
+  if (voices.length === 0) {
+    try {
+      voices = await new Promise((resolve) => {
+        const voicesChanged = () => {
+          const availableVoices = window.speechSynthesis.getVoices();
+          if (availableVoices.length > 0) {
+            window.speechSynthesis.removeEventListener('voiceschanged', voicesChanged);
+            resolve(availableVoices);
+          }
+        };
+        window.speechSynthesis.addEventListener('voiceschanged', voicesChanged);
+        // Also try getting voices immediately
+        const availableVoices = window.speechSynthesis.getVoices();
+        if (availableVoices.length > 0) {
+          window.speechSynthesis.removeEventListener('voiceschanged', voicesChanged);
+          resolve(availableVoices);
+        }
+      });
+    } catch (error) {
+      console.error('Error loading voices:', error);
+    }
+  }
+
+  console.log('Available voices:', voices);
 
   // Create utterance
   const speech = new SpeechSynthesisUtterance(speakText);
   
-  // Try to find a suitable voice
-  let selectedVoice = null;
-  
-  // First try to find Microsoft English voices
-  selectedVoice = freshVoices.find(voice => 
-    voice.name.includes('Microsoft') && voice.lang.startsWith('en')
-  );
-  
-  // If no Microsoft voice, try Google English voices
-  if (!selectedVoice) {
-    selectedVoice = freshVoices.find(voice => 
-      voice.name.includes('Google') && voice.lang.startsWith('en')
-    );
-  }
-  
-  // If still no voice, try any English voice
-  if (!selectedVoice) {
-    selectedVoice = freshVoices.find(voice => 
-      voice.lang.startsWith('en')
-    );
-  }
-  
-  // If still no voice, use the first available voice
-  if (!selectedVoice && freshVoices.length > 0) {
-    selectedVoice = freshVoices[0];
-  }
+  // Find an English voice
+  const englishVoice = voices.find(voice => 
+    voice.lang.startsWith('en') && 
+    (voice.name.includes('Microsoft') || voice.name.includes('Google') || voice.name.includes('English'))
+  ) || voices.find(voice => voice.lang.startsWith('en'));
 
-  if (selectedVoice) {
-    console.log('Selected voice:', {
-      name: selectedVoice.name,
-      lang: selectedVoice.lang,
-      default: selectedVoice.default,
-      localService: selectedVoice.localService,
-      voiceURI: selectedVoice.voiceURI
-    });
-    speech.voice = selectedVoice;
+  if (englishVoice) {
+    console.log('Using voice:', englishVoice.name);
+    speech.voice = englishVoice;
   } else {
-    console.warn('No voice available, using browser default');
+    console.warn('No English voice found, using default');
   }
 
   // Set speech properties
-  speech.text = speakText;  // Ensure text is set
   speech.rate = 1.0;
   speech.pitch = 1.0;
   speech.volume = 1.0;
-  speech.lang = selectedVoice?.lang || 'en-US';  // Ensure language is set
 
-  return new Promise((resolve, reject) => {
-    speech.onend = () => {
-      console.log('Speech ended');
-      resolve(true);
-    };
+  // Add event handlers
+  speech.onstart = () => console.log('Speech started');
+  speech.onend = () => console.log('Speech ended');
+  speech.onerror = (event) => console.error('Speech error:', event);
 
-    speech.onerror = (event) => {
-      console.error('Speech error:', event);
-      reject(event);
-    };
+  // Speak
+  try {
+    console.log('Starting speech...');
+    window.speechSynthesis.speak(speech);
 
-    speech.onstart = () => {
-      console.log('Speech started');
-    };
-
-    try {
-      console.log('Starting speech with text:', speakText);
-      window.speechSynthesis.speak(speech);
-
-      // Keep speech synthesis active
-      const utteranceTimer = setInterval(() => {
-        if (!window.speechSynthesis.speaking) {
-          clearInterval(utteranceTimer);
-          return;
-        }
-        window.speechSynthesis.pause();
-        window.speechSynthesis.resume();
-      }, 14000);
-    } catch (error) {
-      console.error('Error speaking:', error);
-      reject(error);
-    }
-  });
+    // Chrome sometimes fails to speak if the utterance is too long
+    // This keeps the speech synthesis active
+    const utteranceTimer = setInterval(() => {
+      if (!window.speechSynthesis.speaking) {
+        clearInterval(utteranceTimer);
+        return;
+      }
+      window.speechSynthesis.pause();
+      window.speechSynthesis.resume();
+    }, 14000);
+  } catch (error) {
+    console.error('Error speaking:', error);
+  }
 };
 
 function App() {
@@ -121,56 +95,56 @@ function App() {
   const [voices, setVoices] = useState<SpeechSynthesisVoice[]>([]);
 
   useEffect(() => {
-    const initVoices = async () => {
-      if (typeof window !== 'undefined' && window.speechSynthesis) {
-        console.log('Initializing speech synthesis...');
-        
-        // Try to get voices immediately
-        let availableVoices = window.speechSynthesis.getVoices();
-        
-        // If no voices available, wait for them to load
-        if (!availableVoices.length) {
-          try {
-            availableVoices = await new Promise((resolve) => {
-              const voicesChanged = () => {
-                const voices = window.speechSynthesis.getVoices();
-                if (voices.length > 0) {
-                  window.speechSynthesis.removeEventListener('voiceschanged', voicesChanged);
-                  resolve(voices);
-                }
-              };
-              window.speechSynthesis.addEventListener('voiceschanged', voicesChanged);
-              // Double-check voices in case they loaded while we were setting up
-              const voices = window.speechSynthesis.getVoices();
-              if (voices.length > 0) {
-                window.speechSynthesis.removeEventListener('voiceschanged', voicesChanged);
-                resolve(voices);
-              }
-            });
-          } catch (error) {
-            console.error('Error waiting for voices:', error);
+    // Check if speech synthesis is available
+    if (typeof window !== 'undefined' && window.speechSynthesis) {
+      console.log('Speech synthesis is available');
+      
+      // Initial voice loading
+      const loadVoices = () => {
+        try {
+          const availableVoices = window.speechSynthesis.getVoices() || [];
+          console.log('Loaded voices:', availableVoices);
+          if (availableVoices && availableVoices.length > 0) {
+            setVoices(availableVoices);
+          } else {
+            console.warn('No voices available yet');
           }
+        } catch (error) {
+          console.error('Error loading voices:', error);
+          setVoices([]);
         }
+      };
 
-        // Log available voices
-        console.log('Available voices:');
-        availableVoices.forEach((voice, index) => {
-          console.log(`Voice ${index}:`, {
-            name: voice.name,
-            lang: voice.lang,
-            default: voice.default,
-            localService: voice.localService,
-            voiceURI: voice.voiceURI
-          });
-        });
+      // Load voices immediately if available
+      loadVoices();
 
-        setVoices(availableVoices);
+      // Set up voice changed event listener
+      if ('onvoiceschanged' in window.speechSynthesis) {
+        console.log('Setting up onvoiceschanged listener');
+        window.speechSynthesis.onvoiceschanged = () => {
+          console.log('Voices changed event triggered');
+          loadVoices();
+        };
       } else {
-        console.error('Speech synthesis not available');
+        console.warn('onvoiceschanged not supported in this browser');
       }
-    };
 
-    initVoices();
+      // iOS Safari: reload voices on visibility change
+      const handleVisibilityChange = () => {
+        if (!document.hidden) {
+          console.log('Document became visible, reloading voices');
+          loadVoices();
+        }
+      };
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        if ('onvoiceschanged' in window.speechSynthesis) {
+          window.speechSynthesis.onvoiceschanged = null;
+        }
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
+      };
+    }
   }, []);
 
   const handleSpeechResult = async (text: string) => {
@@ -180,40 +154,22 @@ function App() {
       setMessages(prev => [...prev, userMessage]);
 
       // Send to API
-      const apiUrl = 'http://localhost:11434/api/chat';
-      console.log('Sending request to:', apiUrl);
-      console.log('Request payload:', {
-        message: text,
-        context: messages.map(m => ({ text: m.text, isUser: m.isUser })).reverse()
-      });
-
-      const response = await fetch(apiUrl, {
+      const response = await fetch('http://localhost:11434/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           message: text,
-          context: messages.map(m => ({ text: m.text, isUser: m.isUser })).reverse()
+          context: messages.map(m => ({ text: m.text, isUser: m.isUser })).reverse() // Reverse the context to match display order
         }),
       });
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('API Response not OK:', {
-          status: response.status,
-          statusText: response.statusText,
-          body: errorText
-        });
-        throw new Error(`API request failed: ${response.status} ${response.statusText}`);
+        throw new Error('API request failed');
       }
 
       const data = await response.json();
-      console.log('API Response:', data);
-
-      if (!data.message) {
-        throw new Error('API response missing message field');
-      }
 
       // Add AI response and trigger speech
       const aiMessage = { text: data.message, isUser: false };
@@ -229,22 +185,9 @@ function App() {
         }, 100);
         return updatedMessages;
       });
-    } catch (err: unknown) {
-      console.error('Error in speech handling:', err);
-      let errorMessage = 'An unexpected error occurred';
-      
-      if (err instanceof Error) {
-        errorMessage = err.message;
-      } else if (typeof err === 'string') {
-        errorMessage = err;
-      } else if (err && typeof err === 'object' && 'message' in err) {
-        errorMessage = String(err.message);
-      }
-
-      setMessages(prev => [...prev, { 
-        text: `Error: ${errorMessage}. Please ensure the API server is running at ${window.location.protocol}//${window.location.hostname}:11434`, 
-        isUser: false 
-      }]);
+    } catch (error) {
+      console.error('Error in speech handling:', error);
+      setMessages(prev => [...prev, { text: 'Sorry, there was an error processing your request.', isUser: false }]);
     }
   };
 
