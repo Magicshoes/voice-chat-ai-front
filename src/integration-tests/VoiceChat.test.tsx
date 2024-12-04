@@ -215,6 +215,8 @@ jest.mock('react-icons/fa', () => ({
 }));
 
 describe('Voice Chat Integration', () => {
+  let mockRecognitionInstance: any;
+
   // Increase timeout for all tests in this suite
   jest.setTimeout(10000);
 
@@ -245,6 +247,7 @@ describe('Voice Chat Integration', () => {
       value: jest.fn(() => mockRecognitionInstance),
       writable: true
     });
+
 
     Object.defineProperty(window, 'webkitSpeechRecognition', {
       value: jest.fn(() => mockRecognitionInstance),
@@ -297,6 +300,7 @@ describe('Voice Chat Integration', () => {
     // First voice input
     await act(async () => {
       fireEvent.click(voiceButton);
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
     await waitFor(() => {
@@ -307,6 +311,7 @@ describe('Voice Chat Integration', () => {
     // Second voice input
     await act(async () => {
       fireEvent.click(voiceButton);
+      await new Promise(resolve => setTimeout(resolve, 0));
     });
 
     await waitFor(() => {
