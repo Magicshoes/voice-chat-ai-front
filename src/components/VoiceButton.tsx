@@ -42,27 +42,36 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
 
       // Process all results to find the best one
       for (let i = event.resultIndex; i < event.results.length; i++) {
-        const result = event.results[i];
+        const result = event.results.item(i);
+        if (!result) continue;
         
         if (result.isFinal) {
-          // For final results, find the alternative with highest confidence
-          const alternatives = Array.from(result);
-          for (const alternative of alternatives) {
-            if ((alternative as SpeechRecognitionAlternative).confidence > bestResult.confidence) {
+          // For final results, get the first (most confident) result
+          const alternative = result.item(0);
+          if (alternative) {
+            const altTranscript = alternative.transcript || '';
+            const altConfidence = alternative.confidence || 0;
+            
+            if (altConfidence > bestResult.confidence) {
               bestResult = {
-                transcript: (alternative as SpeechRecognitionAlternative).transcript,
-                confidence: (alternative as SpeechRecognitionAlternative).confidence || 0
+                transcript: altTranscript,
+                confidence: altConfidence
               };
             }
           }
           
-          if (bestResult.confidence >= 0.8) {
+          if (bestResult.confidence >= confidenceThreshold) {
             finalTranscript = bestResult.transcript;
           } else {
-            // If confidence is low, append all alternatives for review
-            finalTranscript = (alternatives as SpeechRecognitionAlternative[])
-              .map((alt: SpeechRecognitionAlternative) => alt.transcript)
-              .join(' OR ');
+            // If confidence is low, get all alternatives
+            const alternatives = [];
+            for (let j = 0; j < result.length; j++) {
+              const alt = result.item(j);
+              if (alt && alt.transcript) {
+                alternatives.push(alt.transcript);
+              }
+            }
+            finalTranscript = alternatives.join(' OR ');
           }
 
           // Clean up the transcript
@@ -100,20 +109,18 @@ const VoiceButton: React.FC<VoiceButtonProps> = ({ onSpeechResult }) => {
   };
 
   return (
-    <div className="voice-input-container">
-      <button
-        className={`voice-button ${isListening ? 'listening' : ''}`}
-        onClick={startListening}
-        disabled={isListening}
-        aria-label="Start voice input"
-        aria-pressed={isListening}
-        title="Start voice input"
-        type="button"
-      >
-        <FaMicrophone aria-hidden="true" />
-        <span className="sr-only">Start voice input</span>
-      </button>
-    </div>
+    <button
+      className={`voice-button ${isListening ? 'listening' : ''}`}
+      onClick={startListening}
+      disabled={isListening}
+      aria-label="Start voice input"
+      aria-pressed={isListening}
+      title="Start voice input"
+      type="button"
+    >
+      <FaMicrophone aria-hidden="true" />
+      <span className="sr-only">Start voice input</span>
+    </button>
   );
 };
 

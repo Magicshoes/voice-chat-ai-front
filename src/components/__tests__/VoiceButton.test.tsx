@@ -1,16 +1,35 @@
-import React, { act } from 'react';
-import { render, screen, fireEvent } from '@testing-library/react';
+import React from 'react';
+import { render, screen, fireEvent, act } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import VoiceButton from '../VoiceButton';
 
 // Mock the Web Speech API
+interface SpeechRecognitionEvent {
+  resultIndex: number;
+  results: {
+    length: number;
+    item(index: number): {
+      isFinal: boolean;
+      length: number;
+      item(index: number): {
+        transcript: string;
+        confidence: number;
+      };
+    };
+  };
+  type: string;
+  bubbles: boolean;
+  cancelable: boolean;
+  timeStamp: number;
+}
+
 class MockSpeechRecognition {
   continuous: boolean = false;
   interimResults: boolean = false;
   maxAlternatives: number = 3;
   lang: string = '';
-  onresult: ((event: any) => void) | null = null;
-  onerror: ((event: any) => void) | null = null;
+  onresult: ((event: SpeechRecognitionEvent) => void) | null = null;
+  onerror: ((event: { error: string }) => void) | null = null;
   onend: (() => void) | null = null;
   start = jest.fn();
   stop = jest.fn();
@@ -42,10 +61,8 @@ describe('VoiceButton Component', () => {
     jest.restoreAllMocks();
   });
 
-  it('renders with proper accessibility attributes', async () => {
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+  it('renders with proper accessibility attributes', () => {
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     expect(button).toBeInTheDocument();
@@ -56,9 +73,7 @@ describe('VoiceButton Component', () => {
   });
 
   it('starts listening when clicked', async () => {
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     
@@ -79,9 +94,7 @@ describe('VoiceButton Component', () => {
   });
 
   it('handles successful speech recognition', async () => {
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     
@@ -92,27 +105,28 @@ describe('VoiceButton Component', () => {
     const testText = 'Test speech input';
     
     await act(async () => {
-      const mockResults = [
-        {
-          isFinal: true,
-          0: { transcript: testText, confidence: 0.9 },
-          1: { transcript: 'Test speech input 2', confidence: 0.7 },
-          2: { transcript: 'Test speech input 3', confidence: 0.5 },
-          length: 3
-        }
-      ];
-      
-      // Add array-like methods to mock results
-      Object.setPrototypeOf(mockResults[0], Array.prototype);
-
+      // Simulate recognition result
       mockRecognitionInstance.onresult?.({
         resultIndex: 0,
-        results: mockResults,
+        results: {
+          length: 1,
+          item: (index: number) => ({
+            isFinal: true,
+            length: 1,
+            item: (index: number) => ({
+              transcript: testText,
+              confidence: 0.9
+            })
+          })
+        },
         type: 'result',
         bubbles: false,
         cancelable: false,
         timeStamp: Date.now()
-      } as unknown as SpeechRecognitionEvent);
+      });
+
+      // Simulate recognition end
+      mockRecognitionInstance.onend?.();
     });
 
     expect(mockOnSpeechResult).toHaveBeenCalledWith(testText);
@@ -122,9 +136,7 @@ describe('VoiceButton Component', () => {
   });
 
   it('handles low confidence results', async () => {
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     
@@ -133,27 +145,28 @@ describe('VoiceButton Component', () => {
     });
 
     await act(async () => {
-      const mockResults = [
-        {
-          isFinal: true,
-          0: { transcript: 'Low confidence 1', confidence: 0.4 },
-          1: { transcript: 'Low confidence 2', confidence: 0.3 },
-          2: { transcript: 'Low confidence 3', confidence: 0.2 },
-          length: 3
-        }
-      ];
-      
-      // Add array-like methods to mock results
-      Object.setPrototypeOf(mockResults[0], Array.prototype);
-
+      // Simulate recognition result
       mockRecognitionInstance.onresult?.({
         resultIndex: 0,
-        results: mockResults,
+        results: {
+          length: 1,
+          item: (index: number) => ({
+            isFinal: true,
+            length: 3,
+            item: (index: number) => ({
+              transcript: `Low confidence ${index + 1}`,
+              confidence: 0.4 - (index * 0.1)
+            })
+          })
+        },
         type: 'result',
         bubbles: false,
         cancelable: false,
         timeStamp: Date.now()
-      } as unknown as SpeechRecognitionEvent);
+      });
+
+      // Simulate recognition end
+      mockRecognitionInstance.onend?.();
     });
 
     expect(mockOnSpeechResult).toHaveBeenCalledWith('Low confidence 1 OR Low confidence 2 OR Low confidence 3');
@@ -165,9 +178,7 @@ describe('VoiceButton Component', () => {
   it('handles speech recognition error', async () => {
     const consoleSpy = jest.spyOn(console, 'error').mockImplementation();
 
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     
@@ -176,7 +187,9 @@ describe('VoiceButton Component', () => {
     });
 
     await act(async () => {
+      // Simulate error and end events
       mockRecognitionInstance.onerror?.({ error: 'test error' });
+      mockRecognitionInstance.onend?.();
     });
 
     expect(consoleSpy).toHaveBeenCalledWith('Speech recognition error:', 'test error');
@@ -200,9 +213,7 @@ describe('VoiceButton Component', () => {
       writable: true
     });
 
-    await act(async () => {
-      render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
-    });
+    render(<VoiceButton onSpeechResult={mockOnSpeechResult} />);
 
     const button = screen.getByRole('button', { name: 'Start voice input' });
     
