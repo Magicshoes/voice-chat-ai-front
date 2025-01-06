@@ -153,15 +153,22 @@ function App() {
       const userMessage = { text, isUser: true };
       setMessages(prev => [...prev, userMessage]);
 
+      // Basic Authentication credentials
+      const username = 'admin'; // replace with your username
+      const password = 'changeme'; // replace with your password
+      const credentials = btoa(`${username}:${password}`);
+
       // Send to API
-      const response = await fetch('http://localhost:11434/api/chat', {
+      const response = await fetch('http://192.168.2.127:8081/api/chat', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
+          'Authorization': `Basic ${credentials}`, // Add the Authorization header
         },
         body: JSON.stringify({
           message: text,
-          context: messages.map(m => ({ text: m.text, isUser: m.isUser })).reverse() // Reverse the context to match display order
+          model: selectedModel
+          // context: messages.map(m => ({ text: m.text, isUser: m.isUser })).reverse() // Reverse the context to match display order
         }),
       });
 
@@ -200,8 +207,9 @@ function App() {
           value={selectedModel} 
           onChange={(e) => setSelectedModel(e.target.value)}
         >
+          <option value="mistral">Mistral</option>
           <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
-          <option value="gpt-4">GPT-4</option>
+          <option value="gpt4">GPT-4</option>
         </select>
       </header>
       <main className="chat-container">
